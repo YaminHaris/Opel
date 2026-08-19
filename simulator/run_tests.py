@@ -15,7 +15,8 @@ class CrashFirmwareModel:
         self.state = "ON_TABLE"
         self.impact_start_time = 0
         self.max_g = 0.0
-        self.energy = 0.0
+        self.delta_v = 0.0
+        self.energy = 0.0 # True Kinetic Energy in Joules
         self.is_tumbling = False
         self.is_dragging = False
         
@@ -37,6 +38,7 @@ class CrashFirmwareModel:
                 self.state = "IMPACT_DETECTED"
                 self.impact_start_time = self.current_time_ms
                 self.max_g = gForce
+                self.delta_v = 0.0
                 self.energy = 0.0
                 self.is_tumbling = False
                 self.is_dragging = False
@@ -50,9 +52,18 @@ class CrashFirmwareModel:
                 if (self.current_time_ms - self.impact_start_time > 500) and gForce > self.DRAG_THRESHOLD:
                     self.is_dragging = True
                     
-                self.energy += (gForce * 0.005)
+                # Integrate Acceleration (in m/s^2) to find change in velocity (m/s)
+                # Note: We subtract 1G (gravity) from the calculation during impact, but taking raw vector is safer for tumbling.
+                # Just integrating raw G's for simplicity of prototype
+                accel_ms2 = gForce * 9.81
+                self.delta_v += accel_ms2 * 0.005
+                
+                # Calculate True Kinetic Energy Absorbed (assuming 5.0 kg head+helmet mass)
+                self.energy = 0.5 * 5.0 * (self.delta_v ** 2)
+                
             else:
-                if self.energy > 5.0 or self.is_tumbling or self.is_dragging or self.max_g > self.PEAK_G_FATAL:
+                # 150 Joules is roughly a 10km/h drop of a 5kg head
+                if self.energy > 150.0 or self.is_tumbling or self.is_dragging or self.max_g > self.PEAK_G_FATAL:
                     self.state = "SOS_TRIGGERED"
                 else:
                     self.state = "ON_HEAD_NORMAL"

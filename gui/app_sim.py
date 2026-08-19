@@ -12,58 +12,76 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
-# Point to the log file in the simulator folder (adjust as needed)
-SIM_LOG_FILE = os.path.join(os.path.dirname(__file__), '../simulator/sim_scooter_drag.log')
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../simulator'))
+from kinematic_engine import generate_kinematic_crash
+from run_tests import CrashFirmwareModel
+import random
 
 def file_reader():
     """
-    Reads the synthetic log file exactly as if it was a serial port, 
-    but automatically loops the crash sequence for GUI testing.
+    Dynamically generates physics scenarios and runs them through the algorithm.
     """
-    while True:
-        try:
-            if not os.path.exists(SIM_LOG_FILE):
-                print(f"Waiting for {SIM_LOG_FILE} to be generated...")
-                time.sleep(2)
-                continue
+    scenarios = [
+        {"name": "High Speed Slide", "v": 60.0, "angle": 0, "h": 1.5, "wearing": True},
+        {"name": "City Crash", "v": 30.0, "angle": 45, "h": 1.5, "wearing": True},
+        {"name": "Vertical Fall", "v": 0.0, "angle": 90, "h": 10.0, "wearing": True},
+        {"name": "Dropped Helmet (Empty)", "v": 0.0, "angle": 90, "h": 1.5, "wearing": False},
+        {"name": "Minor Bump", "v": 5.0, "angle": 0, "h": 0.5, "wearing": True}
+    ]
 
-            with open(SIM_LOG_FILE, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        # Expected format: Accel: X, Y, Z | Gyro: X, Y, Z [| Temp: T] [| GPS: lat,lon,speed,sats]
-                        match = re.search(r"Accel:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\|\s*Gyro:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)(?:\s*\|\s*Temp:\s*(-?\d+))?(?:\s*\|\s*GPS:\s*(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(\d+))?", line)
-                        if match:
-                            data = {
-                                'ax': int(match.group(1)),
-                                'ay': int(match.group(2)),
-                                'az': int(match.group(3)),
-                                'gx': int(match.group(4)),
-                                'gy': int(match.group(5)),
-                                'gz': int(match.group(6))
-                            }
-                            if match.group(7) is not None:
-                                data['temp'] = int(match.group(7))
-                            if match.group(8) is not None:
-                                data['lat'] = float(match.group(8))
-                                data['lon'] = float(match.group(9))
-                                data['speed'] = float(match.group(10))
-                                data['sats'] = int(match.group(11))
-                            
-                            socketio.emit('sensor_data', data)
-                    
-                    if "SOS_ALERT" in line:
-                        print(f"EMITTING CRASH: {line}")
-                        socketio.emit('crash_report', {'message': line})
-                            
-                    time.sleep(0.005) # Playback at 200Hz
-                    
-            print(f"End of simulation log. Restarting in 3 seconds...")
-            time.sleep(3)
+    while True:
+        scenario = random.choice(scenarios)
+        print(f"\n--- STARTING SIMULATION: {scenario['name']} ---")
+        logs = generate_kinematic_crash(scenario['v'], scenario['angle'], scenario['h'], scenario['wearing'])
+        
+        firmware = CrashFirmwareModel()
+        sos_emitted = False
+        
+        for line in logs:
+            # Parse line
+            parts = line.split("|")
+            accel_parts = parts[0].replace("Accel:", "").split(",")
+            gyro_parts = parts[1].replace("Gyro:", "").split(",")
+            gps_parts = parts[2].replace("GPS:", "").split(",")
+            ir_part = parts[3].replace("IR:", "").strip()
             
-        except Exception as e:
-            print(f"Error reading sim file: {e}")
-            time.sleep(1)
+            raw_ax = int(accel_parts[0])
+            raw_ay = int(accel_parts[1])
+            raw_az = int(accel_parts[2])
+            raw_gx = int(gyro_parts[0])
+            raw_gy = int(gyro_parts[1])
+            raw_gz = int(gyro_parts[2])
+            gps_speed = float(gps_parts[2])
+            
+            ax = raw_ax / 2048.0
+            ay = raw_ay / 2048.0
+            az = raw_az / 2048.0
+            gx = raw_gx / 131.0
+            gy = raw_gy / 131.0
+            gz = raw_gz / 131.0
+            ir = (ir_part == "1")
+            
+            # Emit raw data to front-end for visualization
+            socketio.emit('sensor_data', {
+                'ax': raw_ax, 'ay': raw_ay, 'az': raw_az,
+                'gx': raw_gx, 'gy': raw_gy, 'gz': raw_gz,
+                'lat': 12.34, 'lon': 56.78, 'speed': gps_speed, 'sats': 8
+            })
+            
+            # Run Algorithm
+            state = firmware.process_frame(ax, ay, az, gx, gy, gz, gps_speed, ir)
+            
+            if state == "SOS_TRIGGERED" and not sos_emitted:
+                msg = f"SOS_ALERT | MaxG: {firmware.max_g:.1f} | Energy: {firmware.energy:.1f} | Tumbling: {1 if firmware.is_tumbling else 0} | Dragging: {1 if firmware.is_dragging else 0} | GPS: 12.34,56.78 | Scenario: {scenario['name']}"
+                print(f"EMITTING CRASH: {msg}")
+                socketio.emit('crash_report', {'message': msg})
+                sos_emitted = True
+                
+            time.sleep(0.005) # Playback at 200Hz
+            
+        print(f"Simulation finished. Restarting in 3 seconds...")
+        time.sleep(3)
 
 @app.route('/')
 def index():

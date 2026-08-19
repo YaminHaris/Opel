@@ -351,6 +351,7 @@
             
             let parts = data.message.split("|").map(p => p.trim());
             let logEntry = `<span style="color: #e74c3c; font-weight: bold;">[${new Date().toLocaleTimeString()}] 🚨 CRASH DETECTED:</span> `;
+            let scenarioName = "Unknown";
             
             for (let i = 1; i < parts.length; i++) {
                 let kv = parts[i].split(":");
@@ -359,12 +360,14 @@
                     let val = kv[1].trim();
                     
                     if (key === "MaxG") logEntry += `| Peak: <span style="color:#f39c12">${val}G</span> `;
-                    else if (key === "Energy") logEntry += `| Energy: <span style="color:#f39c12">${val}J</span> `;
+                    else if (key === "Energy") logEntry += `| Energy: <span style="color:#f39c12">${val} Joules</span> `;
                     else if (key === "Tumbling") logEntry += `| Tumble: <span style="color:#f39c12">${val==="1"?"YES":"NO"}</span> `;
                     else if (key === "Dragging") logEntry += `| Drag: <span style="color:#f39c12">${val==="1"?"YES":"NO"}</span> `;
-                    else if (key === "GPS") logEntry += `| Loc: <span style="color:#3498db">[${val}]</span> `;
+                    else if (key === "Scenario") scenarioName = val;
                 }
             }
+            
+            logEntry = `<span style="color: #3498db; font-weight: bold;">[${scenarioName}]</span> ` + logEntry;
             
             let container = document.getElementById('crash-log-container');
             // Remove the 'waiting' message if it's there
