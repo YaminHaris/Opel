@@ -2,6 +2,13 @@
 
 This repository contains the software, firmware, and tools developed so far for the SIH-Helmet telemetry system. The project uses a Raspberry Pi Pico 2, an MPU6050 (Accelerometer + Gyroscope), and a NEO-6M GPS module to transmit real-time telemetry data to a local Python Flask dashboard.
 
+## Hardware
+
+1. **Raspberry Pi Pico 2**: Main Micrcontroller
+2. **MPU650**: IMU 6DOF, Termometer
+3. **NEO-6M GPS**: GPS
+
+
 ## What has been done so far
 1. **GPS Passthrough Testing**: Created `gps_test` to verify the NEO-6M GPS wiring and check NMEA sentences.
 2. **MPU6050 & GPS Integration**: Created `mpu_reader` firmware that reads data from the MPU6050 via I2C and from the NEO-6M via UART, formatting the output over USB Serial at a high refresh rate.
