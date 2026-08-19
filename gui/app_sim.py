@@ -51,6 +51,10 @@ def file_reader():
                                 data['sats'] = int(match.group(11))
                             
                             socketio.emit('sensor_data', data)
+                    
+                    if "SOS_ALERT" in line:
+                        print(f"EMITTING CRASH: {line}")
+                        socketio.emit('crash_report', {'message': line})
                             
                     time.sleep(0.005) # Playback at 200Hz
                     

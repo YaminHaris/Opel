@@ -52,6 +52,12 @@ def generate_crash_log(crash_type, duration_sec=5.0, sample_rate_hz=200):
             
             line = f"Accel: {raw_ax}, {raw_ay}, {raw_az} | Gyro: {raw_gx}, {raw_gy}, {raw_gz} | GPS: 12.34,56.78,25.0,8\n"
             f.write(line)
+            
+        # At the end of the crash, the firmware outputs an SOS summary
+        if crash_type == "vertical_drop":
+            f.write("SOS_ALERT | MaxG: 25.0 | Energy: 12.5 | Tumbling: 0 | Dragging: 0 | GPS: 12.34,56.78\n")
+        elif crash_type == "scooter_drag":
+            f.write("SOS_ALERT | MaxG: 15.0 | Energy: 45.2 | Tumbling: 1 | Dragging: 1 | GPS: 12.34,56.78\n")
 
     print(f"✅ Generated synthetic crash log: {log_file}")
 
