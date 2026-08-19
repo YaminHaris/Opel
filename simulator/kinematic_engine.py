@@ -1,143 +1,106 @@
+import pybullet as p
+import numpy as np
 import math
 import random
-import argparse
 
 def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, noise_level=0.1):
     """
-    Generates a mathematically accurate 200Hz sensor log using projectile kinematics.
-    velocity_kmh: Initial speed
-    angle_deg: Launch angle (0 = horizontal slide, 90 = vertical drop)
-    height_m: Starting height
-    is_wearing: True if on head (adds biological damping and IR sensor = True)
+    Uses PyBullet (a real C++ headless physics engine) to simulate the crash dynamically.
+    Returns the log lines in the 200Hz format required by the dashboard.
+    Note: The function name remains `generate_kinematic_crash` for drop-in compatibility with the rest of the codebase.
     """
-    sample_rate = 200
-    dt = 1.0 / sample_rate
+    # Initialize headless PyBullet
+    physicsClient = p.connect(p.DIRECT)
     
-    v0 = velocity_kmh / 3.6 # convert to m/s
+    # 200Hz simulation
+    dt = 1.0 / 200.0
+    p.setTimeStep(dt)
+    p.setGravity(0, 0, -9.81)
+    
+    # Create Ground
+    ground_shape = p.createCollisionShape(p.GEOM_PLANE)
+    ground = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=ground_shape)
+    p.changeDynamics(ground, -1, lateralFriction=0.8, restitution=0.2) # Asphalt
+    
+    # Create Helmet (Sphere)
+    mass = 5.0 if is_wearing else 1.5 # 5kg with head, 1.5kg empty
+    radius = 0.15 # 15cm radius
+    helmet_shape = p.createCollisionShape(p.GEOM_SPHERE, radius=radius)
+    helmet = p.createMultiBody(baseMass=mass, baseCollisionShapeIndex=helmet_shape, basePosition=[0, 0, height_m])
+    
+    # Material properties of the helmet (EPS foam / plastic shell)
+    # Wearing it makes it slightly less bouncy (head absorbs energy)
+    restitution = 0.2 if is_wearing else 0.4 
+    p.changeDynamics(helmet, -1, lateralFriction=0.6, restitution=restitution, rollingFriction=0.01)
+    
+    # Apply initial velocity
+    v0 = velocity_kmh / 3.6
     angle_rad = math.radians(angle_deg)
-    
     vx = v0 * math.cos(angle_rad)
-    vz = v0 * math.sin(angle_rad)
-    z = height_m
-    x = 0.0
+    vz = -v0 * math.sin(angle_rad) # Negative because drop angle usually points down
     
-    g = 9.81
+    # Induce a slight random spin if thrown
+    spin_x = random.uniform(-10, 10) if v0 > 0 else 0
+    spin_y = random.uniform(-10, 10) if v0 > 0 else 0
     
-    # Physics parameters
-    impact_duration = 0.015 # 15ms impact (standard hard surface)
-    if is_wearing:
-        impact_duration = 0.025 # Head padding softens impact slightly
-        
-    friction_mu = 0.6 # Asphalt friction
+    p.resetBaseVelocity(helmet, linearVelocity=[vx, 0, vz], angularVelocity=[spin_x, spin_y, 0])
     
     log_lines = []
     
-    state = "FLIGHT" if height_m > 0 else "SLIDING"
-    time = 0.0
+    # State tracking for acceleration (a = dv/dt)
+    prev_vel, _ = p.getBaseVelocity(helmet)
     
-    # State tracking for generation
-    impact_timer = 0.0
-    impact_vz_start = 0.0
-    
-    gx, gy, gz = 0.0, 0.0, 0.0
-    
-    while time < 5.0:
-        ax, ay, az = 0.0, 0.0, 0.0
+    # Simulate for 5 seconds
+    for _ in range(int(5.0 / dt)):
+        p.stepSimulation()
         
-        if state == "FLIGHT":
-            # Freefall
-            az = 0.0 # Accelerometer reads 0G in freefall
-            ax, ay = 0.0, 0.0
-            
-            vz -= g * dt
-            z += vz * dt
-            x += vx * dt
-            
-            if z <= 0:
-                z = 0
-                state = "IMPACT"
-                impact_timer = 0.0
-                impact_vz_start = vz
-                
-        elif state == "IMPACT":
-            # Violent deceleration on Z axis
-            delta_v = abs(impact_vz_start)
-            avg_a = delta_v / impact_duration
-            az_g = (avg_a / g) + 1.0 # Add 1G for earth
-            
-            # Scatter force across axes based on tumbling
-            ax = random.uniform(-az_g*0.2, az_g*0.2)
-            ay = random.uniform(-az_g*0.2, az_g*0.2)
-            az = az_g
-            
-            impact_timer += dt
-            if impact_timer >= impact_duration:
-                vz = 0
-                state = "SLIDING"
-                
-        elif state == "SLIDING":
-            az = 1.0 # Resting on ground
-            
-            if vx > 0:
-                # Friction deceleration
-                decel = friction_mu * g
-                vx -= decel * dt
-                if vx < 0:
-                    vx = 0
-                
-                # Chaotic sliding noise
-                ax = (-decel / g) + random.uniform(-1.0, 1.0)
-                ay = random.uniform(-2.0, 2.0)
-                az += random.uniform(-1.0, 2.0)
-                
-                # Tumbling rotation (proportional to speed)
-                gx = random.uniform(-vx*50, vx*50)
-                gy = random.uniform(-vx*50, vx*50)
-                gz = random.uniform(-vx*10, vx*10)
-            else:
-                state = "REST"
-                
-        elif state == "REST":
-            ax, ay, az = 0.0, 0.0, 1.0
-            gx, gy, gz = 0.0, 0.0, 0.0
-            
-        # Add sensor noise
-        ax += random.uniform(-noise_level, noise_level)
-        ay += random.uniform(-noise_level, noise_level)
-        az += random.uniform(-noise_level, noise_level)
+        lin_vel, ang_vel = p.getBaseVelocity(helmet)
         
-        # Format output
-        raw_ax = int(ax * 2048)
-        raw_ay = int(ay * 2048)
-        raw_az = int(az * 2048)
+        # Calculate acceleration in m/s^2
+        ax = (lin_vel[0] - prev_vel[0]) / dt
+        ay = (lin_vel[1] - prev_vel[1]) / dt
+        az = (lin_vel[2] - prev_vel[2]) / dt
+        
+        # In a real IMU, the Z axis reads +1G when resting on the ground due to normal force.
+        # Convert to Gs and add 1G to Z
+        ax_g = ax / 9.81
+        ay_g = ay / 9.81
+        az_g = (az / 9.81) + 1.0 
+        
+        # Convert Angular Velocity (rad/s) to Degrees/Sec
+        gx = math.degrees(ang_vel[0])
+        gy = math.degrees(ang_vel[1])
+        gz = math.degrees(ang_vel[2])
+        
+        # Add realistic sensor noise
+        ax_g += random.uniform(-noise_level, noise_level)
+        ay_g += random.uniform(-noise_level, noise_level)
+        az_g += random.uniform(-noise_level, noise_level)
+        
+        gx += random.uniform(-2.0, 2.0)
+        gy += random.uniform(-2.0, 2.0)
+        gz += random.uniform(-2.0, 2.0)
+        
+        # Format for output
+        raw_ax = int(ax_g * 2048)
+        raw_ay = int(ay_g * 2048)
+        raw_az = int(az_g * 2048)
         raw_gx = int(gx * 131)
         raw_gy = int(gy * 131)
         raw_gz = int(gz * 131)
         
-        # GPS Speed is roughly vx * 3.6 (ignoring y axis)
-        gps_speed = vx * 3.6
-        
+        # Calculate GPS speed (ignoring Z)
+        gps_speed = math.sqrt(lin_vel[0]**2 + lin_vel[1]**2) * 3.6
         ir_val = 1 if is_wearing else 0
         
         line = f"Accel: {raw_ax}, {raw_ay}, {raw_az} | Gyro: {raw_gx}, {raw_gy}, {raw_gz} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val}\n"
         log_lines.append(line)
         
-        time += dt
+        prev_vel = lin_vel
 
-    # Return the lines
+    p.disconnect()
     return log_lines
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Kinematic Crash Simulator")
-    parser.add_argument("--v", type=float, default=50.0, help="Initial Velocity (km/h)")
-    parser.add_argument("--angle", type=float, default=0.0, help="Launch Angle (degrees. 0=Slide, 90=Drop)")
-    parser.add_argument("--h", type=float, default=1.5, help="Starting height (meters)")
-    parser.add_argument("--wearing", type=bool, default=True, help="Is the helmet on a head?")
-    parser.add_argument("--out", type=str, default="custom_crash.log", help="Output file")
-    
-    args = parser.parse_args()
-    
-    lines = generate_kinematic_crash(args.v, args.angle, args.h, args.wearing)
-    with open(args.out, "w") as f:
-        f.writelines(lines)
-    print(f"Generated physical simulation: {args.out} ({len(lines)} frames @ 200Hz)")
+    logs = generate_kinematic_crash(60.0, 0.0, 1.5, True)
+    print(f"Generated {len(logs)} frames from PyBullet engine.")

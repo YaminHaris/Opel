@@ -27,7 +27,8 @@ SystemState currentState = ON_TABLE;
 // --- CRASH PHYSICS BUFFERS ---
 unsigned long impactStartTime = 0;
 float maxGForce = 0.0;
-float absorbedEnergy = 0.0; // Simplified Area Under Curve (Integral)
+float deltaV = 0.0;
+float absorbedEnergy = 0.0; // True Kinetic Energy in Joules
 bool isTumbling = false;
 bool isDragging = false;
 
@@ -120,6 +121,7 @@ void loop() {
           currentState = IMPACT_DETECTED;
           impactStartTime = currentTime;
           maxGForce = gForce;
+          deltaV = 0.0;
           absorbedEnergy = 0.0;
           isTumbling = false;
           isDragging = false;
@@ -134,18 +136,20 @@ void loop() {
           // Track Tumbling
           if (rotSpeed > TUMBLE_THRESHOLD) isTumbling = true;
           
-          // Track Dragging (Sustained noise > 1.5G after the initial hit)
-          if (currentTime - impactStartTime > 500 && gForce > DRAG_THRESHOLD) {
-            isDragging = true;
-          }
+          // Integrate Energy (True Kinetic Energy in Joules)
+          // We must remove the 1G earth gravity vector so we don't integrate resting weight into infinite velocity
+          float dynamicG = abs(gForce - 1.0);
+          float accel_ms2 = dynamicG * 9.81;
           
-          // Integrate Energy (Area under curve)
-          // Simplified: Energy += G-Force * time_delta(0.005s)
-          absorbedEnergy += (gForce * 0.005);
+          // Current time delta is 0.005s (200Hz)
+          deltaV += (accel_ms2 * 0.005);
+          
+          // KE = 0.5 * m * v^2 (Assuming 5.0kg head+helmet)
+          absorbedEnergy = 0.5 * 5.0 * (deltaV * deltaV);
           
         } else {
           // 3 seconds have passed. Evaluate the crash.
-          if (absorbedEnergy > 5.0 || isTumbling || isDragging || maxGForce > PEAK_G_FATAL) {
+          if (absorbedEnergy > 150.0 || isTumbling || isDragging || maxGForce > PEAK_G_FATAL) {
             currentState = SOS_TRIGGERED;
           } else {
             // It was a short bump, not a sustained crash.

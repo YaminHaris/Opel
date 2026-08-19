@@ -52,10 +52,9 @@ class CrashFirmwareModel:
                 if (self.current_time_ms - self.impact_start_time > 500) and gForce > self.DRAG_THRESHOLD:
                     self.is_dragging = True
                     
-                # Integrate Acceleration (in m/s^2) to find change in velocity (m/s)
-                # Note: We subtract 1G (gravity) from the calculation during impact, but taking raw vector is safer for tumbling.
-                # Just integrating raw G's for simplicity of prototype
-                accel_ms2 = gForce * 9.81
+                # We must subtract 1.0G (Earth's gravity) from the magnitude so we don't integrate gravity while at rest!
+                dynamic_g = abs(gForce - 1.0)
+                accel_ms2 = dynamic_g * 9.81
                 self.delta_v += accel_ms2 * 0.005
                 
                 # Calculate True Kinetic Energy Absorbed (assuming 5.0 kg head+helmet mass)
