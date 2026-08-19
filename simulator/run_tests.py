@@ -8,8 +8,8 @@ class CrashFirmwareModel:
     """
     def __init__(self):
         self.G_FORCE_THRESHOLD = 4.0
-        self.DRAG_THRESHOLD = 1.5
-        self.TUMBLE_THRESHOLD = 300.0
+        self.DRAG_THRESHOLD = 2.5
+        self.TUMBLE_THRESHOLD = 800.0
         self.PEAK_G_FATAL = 50.0
         
         self.state = "ON_TABLE"
@@ -71,7 +71,7 @@ class CrashFirmwareModel:
 
 def run_test(test_name, v, angle, h, wearing, expected_sos):
     print(f"Running Test: {test_name} (v={v}km/h, angle={angle}deg, h={h}m, wearing={wearing})")
-    logs = generate_kinematic_crash(v, angle, h, wearing)
+    logs = generate_kinematic_crash(v, angle, h, wearing, scenario_name=test_name)
     
     firmware = CrashFirmwareModel()
     final_state = "UNKNOWN"
@@ -109,11 +109,18 @@ def run_test(test_name, v, angle, h, wearing, expected_sos):
 
 if __name__ == "__main__":
     tests = [
-        ("High Speed Slide (60kmh)", 60.0, 0, 1.5, True, True),
-        ("City Crash (30kmh)", 30.0, 45, 1.5, True, True),
-        ("Vertical Fall from Roof (10m)", 0.0, 90, 10.0, True, True),
+        # Real Crashes (PyBullet)
+        ("High Speed Slide", 60.0, 0, 1.5, True, True),
+        ("City Crash", 30.0, 45, 1.5, True, True),
+        ("Vertical Fall", 0.0, 90, 10.0, True, True),
+        
+        # Edge Cases & Non-Crashes
         ("Dropped Helmet (Empty)", 0.0, 90, 1.5, False, False),
-        ("Minor Bump (Walking speed)", 5.0, 0, 0.5, True, False),
+        ("Minor Bump", 5.0, 0, 0.5, True, False),
+        ("Normal Riding", 40.0, 0, 1.5, True, False),
+        ("Hard Braking", 80.0, 0, 1.5, True, False),
+        ("Head Checking Blindspot", 60.0, 0, 1.5, True, False),
+        ("Skydiving (Freefall, no impact)", 0.0, 90, 1000.0, True, False)
     ]
     
     all_passed = True

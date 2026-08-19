@@ -27,13 +27,17 @@ def file_reader():
         {"name": "City Crash", "v": 30.0, "angle": 45, "h": 1.5, "wearing": True},
         {"name": "Vertical Fall", "v": 0.0, "angle": 90, "h": 10.0, "wearing": True},
         {"name": "Dropped Helmet (Empty)", "v": 0.0, "angle": 90, "h": 1.5, "wearing": False},
-        {"name": "Minor Bump", "v": 5.0, "angle": 0, "h": 0.5, "wearing": True}
+        {"name": "Minor Bump", "v": 5.0, "angle": 0, "h": 0.5, "wearing": True},
+        {"name": "Normal Riding", "v": 40.0, "angle": 0, "h": 1.5, "wearing": True},
+        {"name": "Hard Braking", "v": 80.0, "angle": 0, "h": 1.5, "wearing": True},
+        {"name": "Head Checking Blindspot", "v": 60.0, "angle": 0, "h": 1.5, "wearing": True},
+        {"name": "Skydiving (Freefall, no impact)", "v": 0.0, "angle": 90, "h": 1000.0, "wearing": True}
     ]
 
     while True:
         scenario = random.choice(scenarios)
         print(f"\n--- STARTING SIMULATION: {scenario['name']} ---")
-        logs = generate_kinematic_crash(scenario['v'], scenario['angle'], scenario['h'], scenario['wearing'])
+        logs = generate_kinematic_crash(scenario['v'], scenario['angle'], scenario['h'], scenario['wearing'], scenario_name=scenario['name'])
         
         firmware = CrashFirmwareModel()
         sos_emitted = False

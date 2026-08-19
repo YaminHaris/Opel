@@ -3,12 +3,72 @@ import numpy as np
 import math
 import random
 
-def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, noise_level=0.1):
+def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, noise_level=0.1, scenario_name=""):
     """
     Uses PyBullet (a real C++ headless physics engine) to simulate the crash dynamically.
-    Returns the log lines in the 200Hz format required by the dashboard.
-    Note: The function name remains `generate_kinematic_crash` for drop-in compatibility with the rest of the codebase.
+    Also handles special procedural non-crash scenarios for thorough algorithm testing.
     """
+    log_lines = []
+    dt = 1.0 / 200.0
+    ir_val = 1 if is_wearing else 0
+
+    # --- PROCEDURAL NON-CRASH SCENARIOS ---
+    if scenario_name == "Normal Riding":
+        # Constant speed, engine vibrations, 1G gravity
+        for i in range(int(5.0 / dt)):
+            ax = random.uniform(-0.5, 0.5)
+            ay = random.uniform(-0.5, 0.5)
+            az = 1.0 + random.uniform(-0.5, 0.5)
+            gx = random.uniform(-10, 10)
+            gy = random.uniform(-10, 10)
+            gz = random.uniform(-10, 10)
+            gps_speed = velocity_kmh
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val}\n"
+            log_lines.append(line)
+        return log_lines
+        
+    elif scenario_name == "Hard Braking":
+        # High deceleration on X axis, GPS speed drops to 0 smoothly, no Z impact
+        speed = velocity_kmh
+        for i in range(int(5.0 / dt)):
+            decel = 0
+            if speed > 0:
+                decel = 0.8 # 0.8G braking force
+                speed -= (decel * 9.81 * 3.6) * dt
+                if speed < 0: speed = 0
+                
+            ax = -decel + random.uniform(-0.2, 0.2)
+            ay = random.uniform(-0.1, 0.1)
+            az = 1.0 + random.uniform(-0.1, 0.1)
+            gx, gy, gz = random.uniform(-5, 5), random.uniform(-5, 5), random.uniform(-5, 5)
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{speed:.1f},8 | IR: {ir_val}\n"
+            log_lines.append(line)
+        return log_lines
+        
+    elif scenario_name == "Head Checking Blindspot":
+        # Rapid YAW rotation (Z-axis gyro), no G-force spikes
+        for i in range(int(5.0 / dt)):
+            ax, ay, az = random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1), 1.0 + random.uniform(-0.1, 0.1)
+            gx, gy = random.uniform(-5, 5), random.uniform(-5, 5)
+            # Simulate a head turn to the left, then back
+            if 1.0 < (i*dt) < 1.5: gz = 200.0 # 200 deg/sec turn
+            elif 2.0 < (i*dt) < 2.5: gz = -200.0
+            else: gz = random.uniform(-5, 5)
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val}\n"
+            log_lines.append(line)
+        return log_lines
+        
+    elif scenario_name == "Skydiving (Freefall, no impact)":
+        # Endless 0G on all axes (terminal velocity reached, or just freefall)
+        for i in range(int(5.0 / dt)):
+            ax, ay, az = random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05)
+            gx, gy, gz = random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val}\n"
+            log_lines.append(line)
+        return log_lines
+        
+    # --- PYBULLET PHYSICS SCENARIOS (Actual Crashes) ---
+    
     # Initialize headless PyBullet
     physicsClient = p.connect(p.DIRECT)
     
