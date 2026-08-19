@@ -249,11 +249,7 @@
                 return; 
             }
 
-            // Temperature Calculation
-            if (data.temp !== undefined) {
-                const tempC = (data.temp / 340.0) + 36.53;
-                document.getElementById('temp-data').innerText = `Temp: ${tempC.toFixed(1)}°C`;
-            }
+            // Temperature Calculation handled in the innerHTML update below.
 
             // Convert raw accel to exact G's (Scale is +/- 2g)
             const ax_g = data.ax / 16384.0;
