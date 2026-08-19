@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SIH Helmet Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        h1, h2, h3 { color: #ffffff; margin-top: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .controls { display: flex; gap: 10px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); flex: 1; min-width: 450px; display: none; border: 1px solid #333; }
+        .card.active { display: block; }
+        
+        .info-panel { background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.5; border-left: 4px solid #3498db; }
+        
+        #canvas-container { width: 100%; height: 400px; background: #000; border-radius: 8px; margin-bottom: 15px; }
+        canvas { max-width: 100%; }
+        .data-readout { display: flex; justify-content: space-around; font-family: monospace; font-size: 20px; color: #00ffcc; background: #000; padding: 15px; border-radius: 8px; }
+        
+        .chart-container { margin-bottom: 20px; background: #252525; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>SIH Smart Helmet Telemetry</h1>
+            <p style="margin: 0; color: #aaa;">Live 6-DOF IMU (MPU6050) Data Dashboard</p>
+        </div>
+        <div class="controls">
+            <button id="calib-btn" onclick="startCalibration()" style="background-color: #e67e22;">1. Calibrate Gyro</button>
+            <button onclick="zeroYaw()" style="background-color: #9b59b6;">2. Reset Forward (Zero Yaw)</button>
+            <button onclick="showView('3d')" style="margin-left: 20px;">3D View</button>
+            <button onclick="showView('graph')">Live Graphs</button>
+            <button onclick="showView('both')">Show Both</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 3D View Card -->
+        <div id="view-3d" class="card active">
+            <h2>Live Helmet Orientation</h2>
+            <div class="info-panel">
+                <strong>How it works:</strong> The 3D model fuses Accelerometer data (gravity) to perfectly track <b>Pitch</b> (nodding up/down) and <b>Roll</b> (tilting side-to-side). It integrates Gyroscope data to track <b>Yaw</b> (turning left/right). <i>Because it lacks a compass, Yaw will slowly drift over time. Use the "Reset Forward" button to re-center it!</i>
+                <strong>Yaw Drift Ignorer:</strong> <span id="yaw-deadzone-val">2.4</span>°/s
+                <input type="range" id="yaw-deadzone-slider" min="0" max="5" step="0.1" value="2.4" style="width: 100%; margin-top: 5px;">
+                <br>
+                <strong>Pitch/Roll Drift Ignorer:</strong> <span id="pr-deadzone-val">0.5</span>°/s
+                <input type="range" id="pr-deadzone-slider" min="0" max="5" step="0.1" value="0.5" style="width: 100%; margin-top: 5px;">
+            </div>
+            <div id="canvas-container"></div>
+            <div class="data-readout" id="orientation-data">
+                <span>Pitch: 0°</span>
+                <span>Roll: 0°</span>
+                <span>Yaw: 0°</span>
+                <span style="color: #ff9900;" id="temp-data">Temp: --°C</span>
+            </div>
+        </div>
+
+        <!-- Graph View Card -->
+        <div id="view-graph" class="card">
+            <h2>Human-Readable Sensor Streams</h2>
+            <div class="info-panel">
+                <strong>What you are seeing:</strong> Raw sensor gibberish has been mathematically converted into real-world physics units. 
+                <br>• <b>Angles:</b> Real-time calculated head orientation (-180° to 180°).
+                <br>• <b>G-Force:</b> 1.0 G is Earth's gravity. A crash or jump will spike > 2.0 G!
+                <br>• <b>Rotation Speed:</b> How violently the head is spinning in Degrees per Second (°/s).
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="angleChart" height="120"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="accelChart" height="120"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="gyroChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- View Toggling ---
+        function showView(view) {
+            if (view === '3d') {
+                document.getElementById('view-3d').classList.add('active');
+                document.getElementById('view-graph').classList.remove('active');
+            } else if (view === 'graph') {
+                document.getElementById('view-3d').classList.remove('active');
+                document.getElementById('view-graph').classList.add('active');
+            } else {
+                document.getElementById('view-3d').classList.add('active');
+                document.getElementById('view-graph').classList.add('active');
+            }
+            window.dispatchEvent(new Event('resize')); 
+        }
+
+        // --- Socket.IO Connection ---
+        const socket = io();
+
+        // --- Three.js 3D Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, container.clientWidth / 400, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, 400);
+        container.appendChild(renderer.domElement);
+
+        // Create Helmet Model
+        const geometry = new THREE.BoxGeometry(3, 2.5, 3.5);
+        const material = new THREE.MeshPhongMaterial({ color: 0x27ae60, shininess: 80 });
+        const helmet = new THREE.Mesh(geometry, material);
+        scene.add(helmet);
+
+        // Add Visor
+        const visorGeo = new THREE.BoxGeometry(3.1, 1, 1.5);
+        const visorMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+        const visor = new THREE.Mesh(visorGeo, visorMat);
+        visor.position.set(0, 0.2, 1.2);
+        helmet.add(visor);
+
+        const light = new THREE.DirectionalLight(0xffffff, 1.2);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x606060));
+
+        camera.position.z = 6;
+        camera.position.y = 2;
+        camera.lookAt(0, 0, 0);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- Chart.js Setup ---
+        Chart.defaults.color = '#aaa';
+        const commonOptions = (title, yTitle, min, max) => ({
+            responsive: true,
+            animation: false,
+            scales: { 
+                x: { display: false }, 
+                y: { display: true, title: { display: true, text: yTitle }, min: min, max: max } 
+            },
+            elements: { point: { radius: 0 }, line: { borderWidth: 2 } },
+            plugins: { title: { display: true, text: title, color: '#fff', font: { size: 16 } } }
+        });
+
+        const ctxAngle = document.getElementById('angleChart').getContext('2d');
+        const angleChart = new Chart(ctxAngle, {
+            type: 'line',
+            data: {
+                labels: Array(100).fill(''),
+                datasets: [
+                    { label: 'Pitch (Nod)', borderColor: '#e74c3c', data: Array(100).fill(0) },
+                    { label: 'Roll (Tilt)', borderColor: '#2ecc71', data: Array(100).fill(0) },
+                    { label: 'Yaw (Turn)', borderColor: '#3498db', data: Array(100).fill(0) }
+                ]
+            },
+            options: commonOptions('Calculated Head Angles', 'Degrees (°)', -180, 180)
+        });
+
+        const ctxAccel = document.getElementById('accelChart').getContext('2d');
+        const accelChart = new Chart(ctxAccel, {
+            type: 'line',
+            data: {
+                labels: Array(100).fill(''),
+                datasets: [
+                    { label: 'X Axis', borderColor: '#e74c3c', data: Array(100).fill(0) },
+                    { label: 'Y Axis', borderColor: '#2ecc71', data: Array(100).fill(0) },
+                    { label: 'Z Axis (Gravity)', borderColor: '#3498db', data: Array(100).fill(0) }
+                ]
+            },
+            options: commonOptions('G-Force (Accelerometer)', 'G\'s', -2.5, 2.5)
+        });
+
+        const ctxGyro = document.getElementById('gyroChart').getContext('2d');
+        const gyroChart = new Chart(ctxGyro, {
+            type: 'line',
+            data: {
+                labels: Array(100).fill(''),
+                datasets: [
+                    { label: 'X Axis', borderColor: '#e74c3c', data: Array(100).fill(0) },
+                    { label: 'Y Axis', borderColor: '#2ecc71', data: Array(100).fill(0) },
+                    { label: 'Z Axis', borderColor: '#3498db', data: Array(100).fill(0) }
+                ]
+            },
+            options: commonOptions('Rotation Speed (Gyroscope)', 'Degrees/Sec (°/s)', -250, 250)
+        });
+
+        // --- Data Processing & Calibration ---
+        let pitch = 0, roll = 0, yaw = 0;
+        let lastTime = Date.now();
+        let yawOffset = 0; // For manual zeroing
+
+        let isCalibrating = false;
+        let calibrationSamples = 0;
+        let gyroOffsets = {x: 0, y: 0, z: 0};
+        const numCalibSamples = 150;
+
+        function startCalibration() {
+            isCalibrating = true;
+            calibrationSamples = 0;
+            gyroOffsets = {x: 0, y: 0, z: 0};
+            pitch = 0; roll = 0; yaw = 0; yawOffset = 0;
+            document.getElementById('calib-btn').innerText = "Calibrating (Keep Still)...";
+            document.getElementById('calib-btn').style.backgroundColor = "#f39c12";
+        }
+
+        function zeroYaw() {
+            yawOffset = yaw; // Snap the current yaw to be the new "zero" forward
+        }
+
+        const yawDeadzoneSlider = document.getElementById('yaw-deadzone-slider');
+        const yawDeadzoneValDisplay = document.getElementById('yaw-deadzone-val');
+        yawDeadzoneSlider.addEventListener('input', function() {
+            yawDeadzoneValDisplay.innerText = this.value;
+        });
+
+        const prDeadzoneSlider = document.getElementById('pr-deadzone-slider');
+        const prDeadzoneValDisplay = document.getElementById('pr-deadzone-val');
+        prDeadzoneSlider.addEventListener('input', function() {
+            prDeadzoneValDisplay.innerText = this.value;
+        });
+
+        socket.on('sensor_data', function(data) {
+            const dt = (Date.now() - lastTime) / 1000.0;
+            lastTime = Date.now();
+
+            if (isCalibrating) {
+                gyroOffsets.x += data.gx;
+                gyroOffsets.y += data.gy;
+                gyroOffsets.z += data.gz;
+                calibrationSamples++;
+                
+                if (calibrationSamples >= numCalibSamples) {
+                    gyroOffsets.x /= numCalibSamples;
+                    gyroOffsets.y /= numCalibSamples;
+                    gyroOffsets.z /= numCalibSamples;
+                    isCalibrating = false;
+                    document.getElementById('calib-btn').innerText = "1. Recalibrate Gyro";
+                    document.getElementById('calib-btn').style.backgroundColor = "#e67e22";
+                }
+                return; 
+            }
+
+            // Temperature Calculation
+            if (data.temp !== undefined) {
+                const tempC = (data.temp / 340.0) + 36.53;
+                document.getElementById('temp-data').innerText = `Temp: ${tempC.toFixed(1)}°C`;
+            }
+
+            // Convert raw accel to exact G's (Scale is +/- 2g)
+            const ax_g = data.ax / 16384.0;
+            const ay_g = data.ay / 16384.0;
+            const az_g = data.az / 16384.0;
+
+            // Subtract errors and convert raw gyro to Degrees/Sec (Scale is +/- 250 deg/s)
+            let gx_deg = (data.gx - gyroOffsets.x) / 131.0;
+            let gy_deg = (data.gy - gyroOffsets.y) / 131.0;
+            let gz_deg = (data.gz - gyroOffsets.z) / 131.0;
+
+            // Apply Deadzone
+            const yawDeadzone = parseFloat(yawDeadzoneSlider.value);
+            const prDeadzone = parseFloat(prDeadzoneSlider.value);
+            
+            if (Math.abs(gx_deg) < prDeadzone) gx_deg = 0; // Pitch
+            if (Math.abs(gy_deg) < prDeadzone) gy_deg = 0; // Roll
+            if (Math.abs(gz_deg) < yawDeadzone) gz_deg = 0; // Yaw
+
+            // Update G-Force Chart
+            accelChart.data.datasets[0].data.push(ax_g); accelChart.data.datasets[0].data.shift();
+            accelChart.data.datasets[1].data.push(ay_g); accelChart.data.datasets[1].data.shift();
+            accelChart.data.datasets[2].data.push(az_g); accelChart.data.datasets[2].data.shift();
+            accelChart.update();
+
+            // Update Gyro Chart
+            gyroChart.data.datasets[0].data.push(gx_deg); gyroChart.data.datasets[0].data.shift();
+            gyroChart.data.datasets[1].data.push(gy_deg); gyroChart.data.datasets[1].data.shift();
+            gyroChart.data.datasets[2].data.push(gz_deg); gyroChart.data.datasets[2].data.shift();
+            gyroChart.update();
+
+            // Calculate Angles
+            const accelPitch = Math.atan2(ay_g, Math.sqrt(ax_g * ax_g + az_g * az_g)) * (180 / Math.PI);
+            const accelRoll = Math.atan2(-ax_g, Math.sqrt(ay_g * ay_g + az_g * az_g)) * (180 / Math.PI);
+
+            // Complementary Filter
+            const alpha = 0.96;
+            pitch = alpha * (pitch + gx_deg * dt) + (1 - alpha) * accelPitch;
+            roll = alpha * (roll + gy_deg * dt) + (1 - alpha) * accelRoll;
+            yaw = yaw + gz_deg * dt; 
+
+            // Calculate display yaw relative to the "Forward" button
+            let displayYaw = yaw - yawOffset;
+
+            // Update Angle Chart
+            angleChart.data.datasets[0].data.push(pitch); angleChart.data.datasets[0].data.shift();
+            angleChart.data.datasets[1].data.push(roll); angleChart.data.datasets[1].data.shift();
+            angleChart.data.datasets[2].data.push(displayYaw); angleChart.data.datasets[2].data.shift();
+            angleChart.update();
+
+            // Apply to 3D Object
+            helmet.rotation.x = pitch * (Math.PI / 180);
+            helmet.rotation.z = -roll * (Math.PI / 180); 
+            helmet.rotation.y = -displayYaw * (Math.PI / 180);
+
+            // Update text
+            document.getElementById('orientation-data').innerHTML = 
+                `<span>Pitch: ${Math.round(pitch)}°</span>` +
+                `<span>Roll: ${Math.round(roll)}°</span>` +
+                `<span>Yaw: ${Math.round(displayYaw)}°</span>` +
+                `<span style="color: #ff9900;">Temp: ${data.temp !== undefined ? ((data.temp/340)+36.53).toFixed(1) : '--'}°C</span>`;
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / 400;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, 400);
+        });
+        
+        showView('both');
+    </script>
+</body>
+</html>
