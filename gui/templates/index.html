@@ -293,7 +293,7 @@
             const alpha = 0.96;
             pitch = alpha * (pitch + gx_deg * dt) + (1 - alpha) * accelPitch;
             roll = alpha * (roll + gy_deg * dt) + (1 - alpha) * accelRoll;
-            yaw = yaw + gz_deg * dt; 
+            yaw = yaw - gz_deg * dt; 
 
             // Calculate display yaw relative to the "Forward" button
             let displayYaw = yaw - yawOffset;
