@@ -176,7 +176,7 @@
                     { label: 'Z Axis (Gravity)', borderColor: '#3498db', data: Array(100).fill(0) }
                 ]
             },
-            options: commonOptions('G-Force (Accelerometer)', 'G\'s', -2.5, 2.5)
+            options: commonOptions('G-Force (Accelerometer)', 'G\'s', -16.5, 16.5)
         });
 
         const ctxGyro = document.getElementById('gyroChart').getContext('2d');
@@ -251,10 +251,10 @@
 
             // Temperature Calculation handled in the innerHTML update below.
 
-            // Convert raw accel to exact G's (Scale is +/- 2g)
-            const ax_g = data.ax / 16384.0;
-            const ay_g = data.ay / 16384.0;
-            const az_g = data.az / 16384.0;
+            // Convert raw accel to exact G's (Scale is +/- 16g for crash detection)
+            const ax_g = data.ax / 2048.0;
+            const ay_g = data.ay / 2048.0;
+            const az_g = data.az / 2048.0;
 
             // Subtract errors and convert raw gyro to Degrees/Sec (Scale is +/- 250 deg/s)
             let gx_deg = (data.gx - gyroOffsets.x) / 131.0;

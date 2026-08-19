@@ -32,6 +32,12 @@ void setup() {
     Wire1.write(0x6B); // PWR_MGMT_1 register
     Wire1.write(0);    // set to zero (wakes up the MPU-6050)
     Wire1.endTransmission(true);
+
+    // Set Accelerometer to +/- 16G (for crash detection)
+    Wire1.beginTransmission(MPU_ADDR);
+    Wire1.write(0x1C); // ACCEL_CONFIG register
+    Wire1.write(0x18); // Set to 16G (0x18)
+    Wire1.endTransmission(true);
   } else {
     Serial.print("Error communicating with MPU6050. I2C error code: ");
     Serial.println(error);
