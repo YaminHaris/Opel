@@ -53,7 +53,7 @@ void loop() {
     int16_t AcX = Wire1.read() << 8 | Wire1.read(); 
     int16_t AcY = Wire1.read() << 8 | Wire1.read(); 
     int16_t AcZ = Wire1.read() << 8 | Wire1.read(); 
-    int16_t Tmp = Wire1.read() << 8 | Wire1.read(); // Skipping temp value
+    int16_t Tmp = Wire1.read() << 8 | Wire1.read(); // Temperature
     int16_t GyX = Wire1.read() << 8 | Wire1.read(); 
     int16_t GyY = Wire1.read() << 8 | Wire1.read(); 
     int16_t GyZ = Wire1.read() << 8 | Wire1.read(); 
@@ -64,7 +64,8 @@ void loop() {
     Serial.print(", "); Serial.print(AcZ);
     Serial.print(" | Gyro: "); Serial.print(GyX);
     Serial.print(", "); Serial.print(GyY);
-    Serial.print(", "); Serial.println(GyZ);
+    Serial.print(", "); Serial.print(GyZ);
+    Serial.print(" | Temp: "); Serial.println(Tmp);
   }
   
   delay(100);
