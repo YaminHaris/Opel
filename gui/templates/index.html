@@ -40,14 +40,12 @@
         </div>
     </div>
 
-    <!-- SOS CRASH OVERLAY -->
-    <div id="sos-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 0, 0, 0.9); z-index: 9999; color: white; text-align: center; padding-top: 100px;">
-        <h1 style="font-size: 80px; text-shadow: 2px 2px 10px #000;">🚨 SOS CRASH DETECTED 🚨</h1>
-        <div id="sos-details" style="font-size: 30px; background: rgba(0,0,0,0.8); display: inline-block; padding: 40px; border-radius: 20px; text-align: left; line-height: 1.8; box-shadow: 0 0 30px #000;">
-            <!-- Crash details will be injected here -->
+    <!-- TERMINAL CRASH LOG -->
+    <div class="card active" style="margin-bottom: 20px; border-color: #e74c3c;">
+        <h2 style="color: #e74c3c;">🚨 Incident Log (Terminal Feed)</h2>
+        <div id="crash-log-container" style="background: #000; padding: 15px; border-radius: 5px; font-family: monospace; height: 150px; overflow-y: auto; border-left: 4px solid #e74c3c;">
+            <div style="color: #666;">Waiting for telemetry events...</div>
         </div>
-        <br><br>
-        <button onclick="document.getElementById('sos-overlay').style.display='none'" style="font-size: 24px; padding: 15px 40px; background: #333; border: 2px solid white;">Dismiss Alert</button>
     </div>
 
     <div class="container">
@@ -351,35 +349,31 @@
         socket.on('crash_report', function(data) {
             console.log("CRASH RECEIVED: ", data);
             
-            // Format the string nicely
-            // SOS_ALERT | MaxG: 15.0 | Energy: 45.2 | Tumbling: 1 | Dragging: 1 | GPS: 12.34,56.78
             let parts = data.message.split("|").map(p => p.trim());
-            let html = "";
+            let logEntry = `<span style="color: #e74c3c; font-weight: bold;">[${new Date().toLocaleTimeString()}] 🚨 CRASH DETECTED:</span> `;
+            
             for (let i = 1; i < parts.length; i++) {
                 let kv = parts[i].split(":");
                 if (kv.length === 2) {
                     let key = kv[0].trim();
                     let val = kv[1].trim();
                     
-                    if (key === "MaxG") html += `💥 <b>Peak Impact:</b> ${val} Gs<br>`;
-                    else if (key === "Energy") html += `⚡ <b>Kinetic Severity:</b> ${val} Joules<br>`;
-                    else if (key === "Tumbling") html += `🔄 <b>Violent Tumble:</b> ${val === "1" ? "DETECTED" : "No"}<br>`;
-                    else if (key === "Dragging") html += `🛣️ <b>Road Dragging:</b> ${val === "1" ? "DETECTED" : "No"}<br>`;
-                    else if (key === "GPS") html += `📍 <b>Location:</b> ${val}<br>`;
+                    if (key === "MaxG") logEntry += `| Peak: <span style="color:#f39c12">${val}G</span> `;
+                    else if (key === "Energy") logEntry += `| Energy: <span style="color:#f39c12">${val}J</span> `;
+                    else if (key === "Tumbling") logEntry += `| Tumble: <span style="color:#f39c12">${val==="1"?"YES":"NO"}</span> `;
+                    else if (key === "Dragging") logEntry += `| Drag: <span style="color:#f39c12">${val==="1"?"YES":"NO"}</span> `;
+                    else if (key === "GPS") logEntry += `| Loc: <span style="color:#3498db">[${val}]</span> `;
                 }
             }
             
-            document.getElementById('sos-details').innerHTML = html;
-            document.getElementById('sos-overlay').style.display = 'block';
+            let container = document.getElementById('crash-log-container');
+            // Remove the 'waiting' message if it's there
+            if (container.innerHTML.includes("Waiting for telemetry")) {
+                container.innerHTML = "";
+            }
             
-            // Flash effect
-            let flash = setInterval(() => {
-                let overlay = document.getElementById('sos-overlay');
-                overlay.style.background = overlay.style.background.includes('0.9') ? 'rgba(200, 0, 0, 0.9)' : 'rgba(255, 0, 0, 0.9)';
-            }, 100);
-            
-            // Stop flash on dismiss
-            document.getElementById('sos-overlay').onclick = () => clearInterval(flash);
+            // Prepend new log
+            container.innerHTML = `<div style="margin-bottom: 8px; border-bottom: 1px dashed #333; padding-bottom: 8px;">${logEntry}</div>` + container.innerHTML;
         });
 
         showView('both');
