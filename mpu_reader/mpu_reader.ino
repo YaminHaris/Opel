@@ -13,6 +13,7 @@ const int IR_SENSOR_PIN = 15; // GP15 for IR Proximity OUT
 const float G_FORCE_THRESHOLD = 4.0; // Wake up and start recording at 4G
 const float DRAG_THRESHOLD = 1.5;    // Continuous noise threshold for sliding
 const float TUMBLE_THRESHOLD = 300.0; // Degrees per second
+const float PEAK_G_FATAL = 50.0;      // Instant fatality threshold
 
 // --- STATE MACHINE ---
 enum SystemState {
@@ -144,7 +145,7 @@ void loop() {
           
         } else {
           // 3 seconds have passed. Evaluate the crash.
-          if (absorbedEnergy > 5.0 || isTumbling || isDragging) {
+          if (absorbedEnergy > 5.0 || isTumbling || isDragging || maxGForce > PEAK_G_FATAL) {
             currentState = SOS_TRIGGERED;
           } else {
             // It was a short bump, not a sustained crash.
