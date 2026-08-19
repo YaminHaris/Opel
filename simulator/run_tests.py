@@ -8,7 +8,7 @@ class CrashFirmwareModel:
     """
     def __init__(self):
         self.G_FORCE_THRESHOLD = 4.0
-        self.DRAG_THRESHOLD = 2.5
+        self.DRAG_THRESHOLD = 1.3
         self.TUMBLE_THRESHOLD = 800.0
         self.PEAK_G_FATAL = 50.0
         

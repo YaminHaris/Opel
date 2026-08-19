@@ -11,7 +11,7 @@ const int IR_SENSOR_PIN = 15; // GP15 for IR Proximity OUT
 
 // --- THRESHOLDS & CONSTANTS ---
 const float G_FORCE_THRESHOLD = 4.0; // Wake up and start recording at 4G
-const float DRAG_THRESHOLD = 2.5;    // Continuous noise threshold for sliding
+const float DRAG_THRESHOLD = 1.3;    // Continuous noise threshold for sliding
 const float TUMBLE_THRESHOLD = 800.0; // Degrees per second (Violent spin)
 const float PEAK_G_FATAL = 50.0;      // Instant fatality threshold
 
