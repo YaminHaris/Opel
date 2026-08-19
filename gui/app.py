@@ -26,8 +26,8 @@ def serial_reader():
             
             line = ser.readline().decode('utf-8', errors='ignore').strip()
             if line:
-                # Expected format: Accel: X, Y, Z | Gyro: X, Y, Z [| Temp: T]
-                match = re.search(r"Accel:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\|\s*Gyro:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)(?:\s*\|\s*Temp:\s*(-?\d+))?", line)
+                # Expected format: Accel: X, Y, Z | Gyro: X, Y, Z [| Temp: T] [| GPS: lat,lon,speed,sats]
+                match = re.search(r"Accel:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\|\s*Gyro:\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)(?:\s*\|\s*Temp:\s*(-?\d+))?(?:\s*\|\s*GPS:\s*(-?\d+\.\d+),(-?\d+\.\d+),(-?\d+\.\d+),(\d+))?", line)
                 if match:
                     data = {
                         'ax': int(match.group(1)),
@@ -39,6 +39,12 @@ def serial_reader():
                     }
                     if match.group(7) is not None:
                         data['temp'] = int(match.group(7))
+                    if match.group(8) is not None:
+                        data['lat'] = float(match.group(8))
+                        data['lon'] = float(match.group(9))
+                        data['speed'] = float(match.group(10))
+                        data['sats'] = int(match.group(11))
+                    
                     socketio.emit('sensor_data', data)
                     
         except serial.SerialException as e:

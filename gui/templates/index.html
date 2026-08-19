@@ -53,11 +53,14 @@
                 <input type="range" id="pr-deadzone-slider" min="0" max="5" step="0.1" value="2.6" style="width: 100%; margin-top: 5px;">
             </div>
             <div id="canvas-container"></div>
-            <div class="data-readout" id="orientation-data">
+            <div class="data-readout" id="orientation-data" style="margin-bottom: 10px;">
                 <span>Pitch: 0°</span>
                 <span>Roll: 0°</span>
                 <span>Yaw: 0°</span>
                 <span style="color: #ff9900;" id="temp-data">Temp: --°C</span>
+            </div>
+            <div class="data-readout" id="gps-data" style="color: #3498db; font-size: 16px;">
+                <span>GPS: Searching for Satellites...</span>
             </div>
         </div>
 
@@ -311,6 +314,20 @@
                 `<span>Roll: ${Math.round(roll)}°</span>` +
                 `<span>Yaw: ${Math.round(displayYaw)}°</span>` +
                 `<span style="color: #ff9900;">Temp: ${data.temp !== undefined ? ((data.temp/340)+36.53).toFixed(1) : '--'}°C</span>`;
+
+            // Update GPS
+            if (data.lat !== undefined) {
+                if (data.sats > 0) {
+                    document.getElementById('gps-data').innerHTML = 
+                        `<span>Lat: ${data.lat.toFixed(6)}</span>` +
+                        `<span>Lon: ${data.lon.toFixed(6)}</span>` +
+                        `<span>Speed: ${data.speed.toFixed(1)} km/h</span>` +
+                        `<span>Sats: ${data.sats}</span>`;
+                } else {
+                    document.getElementById('gps-data').innerHTML = 
+                        `<span>GPS Connected: Searching for Satellites... (0 found)</span>`;
+                }
+            }
         });
 
         // Handle window resize
