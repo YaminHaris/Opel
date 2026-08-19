@@ -49,6 +49,7 @@ def file_reader():
             gyro_parts = parts[1].replace("Gyro:", "").split(",")
             gps_parts = parts[2].replace("GPS:", "").split(",")
             ir_part = parts[3].replace("IR:", "").strip()
+            pos_parts = parts[4].replace("POS:", "").split(",")
             
             raw_ax = int(accel_parts[0])
             raw_ay = int(accel_parts[1])
@@ -57,6 +58,10 @@ def file_reader():
             raw_gy = int(gyro_parts[1])
             raw_gz = int(gyro_parts[2])
             gps_speed = float(gps_parts[2])
+            
+            px = float(pos_parts[0])
+            py = float(pos_parts[1])
+            pz = float(pos_parts[2])
             
             ax = raw_ax / 2048.0
             ay = raw_ay / 2048.0
@@ -70,6 +75,7 @@ def file_reader():
             socketio.emit('sensor_data', {
                 'ax': raw_ax, 'ay': raw_ay, 'az': raw_az,
                 'gx': raw_gx, 'gy': raw_gy, 'gz': raw_gz,
+                'px': px, 'py': py, 'pz': pz,
                 'lat': 12.34, 'lon': 56.78, 'speed': gps_speed, 'sats': 8
             })
             

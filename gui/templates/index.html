@@ -138,6 +138,11 @@
         light.position.set(5, 5, 5);
         scene.add(light);
         scene.add(new THREE.AmbientLight(0x606060));
+        
+        // Add a Floor Grid to visualize the crash bouncing!
+        const gridHelper = new THREE.GridHelper(100, 100, 0x444444, 0x222222);
+        gridHelper.position.y = -1.5; // Slightly below helmet rest position
+        scene.add(gridHelper);
 
         camera.position.z = 6;
         camera.position.y = 2;
@@ -311,10 +316,23 @@
             angleChart.data.datasets[2].data.push(displayYaw); angleChart.data.datasets[2].data.shift();
             angleChart.update();
 
-            // Apply to 3D Object
+            // Apply to 3D Object Rotation
             helmet.rotation.x = pitch * (Math.PI / 180);
             helmet.rotation.z = -roll * (Math.PI / 180); 
             helmet.rotation.y = -displayYaw * (Math.PI / 180);
+
+            // Apply 3D Translation (Positional movement from PyBullet!)
+            if (data.px !== undefined) {
+                // Scale positional data so it fits in the view (1 unit = 1 meter is too big if it flies 20 meters)
+                helmet.position.x = data.px * 0.5;
+                // Pybullet Z is up, Three.js Y is up
+                helmet.position.y = (data.pz * 0.5) - 0.5; // -0.5 to rest on floor
+                helmet.position.z = -data.py * 0.5;
+                
+                // Have the camera loosely follow the helmet
+                camera.position.x = helmet.position.x;
+                camera.lookAt(helmet.position.x, helmet.position.y, helmet.position.z);
+            }
 
             // Update text
             document.getElementById('orientation-data').innerHTML = 

@@ -23,13 +23,14 @@ def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, nois
             gy = random.uniform(-10, 10)
             gz = random.uniform(-10, 10)
             gps_speed = velocity_kmh
-            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val}\n"
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val} | POS: 0.0,0.0,1.5\n"
             log_lines.append(line)
         return log_lines
         
     elif scenario_name == "Hard Braking":
         # High deceleration on X axis, GPS speed drops to 0 smoothly, no Z impact
         speed = velocity_kmh
+        pos_x = 0.0
         for i in range(int(5.0 / dt)):
             decel = 0
             if speed > 0:
@@ -37,11 +38,13 @@ def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, nois
                 speed -= (decel * 9.81 * 3.6) * dt
                 if speed < 0: speed = 0
                 
+            pos_x += (speed / 3.6) * dt
+                
             ax = -decel + random.uniform(-0.2, 0.2)
             ay = random.uniform(-0.1, 0.1)
             az = 1.0 + random.uniform(-0.1, 0.1)
             gx, gy, gz = random.uniform(-5, 5), random.uniform(-5, 5), random.uniform(-5, 5)
-            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{speed:.1f},8 | IR: {ir_val}\n"
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{speed:.1f},8 | IR: {ir_val} | POS: {pos_x:.3f},0.0,1.5\n"
             log_lines.append(line)
         return log_lines
         
@@ -54,16 +57,18 @@ def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, nois
             if 1.0 < (i*dt) < 1.5: gz = 200.0 # 200 deg/sec turn
             elif 2.0 < (i*dt) < 2.5: gz = -200.0
             else: gz = random.uniform(-5, 5)
-            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val}\n"
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val} | POS: 0.0,0.0,1.5\n"
             log_lines.append(line)
         return log_lines
         
     elif scenario_name == "Skydiving (Freefall, no impact)":
         # Endless 0G on all axes (terminal velocity reached, or just freefall)
+        pos_z = 1000.0
         for i in range(int(5.0 / dt)):
+            pos_z -= 50.0 * dt # falling at 50 m/s
             ax, ay, az = random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05)
             gx, gy, gz = random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)
-            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val}\n"
+            line = f"Accel: {int(ax*2048)}, {int(ay*2048)}, {int(az*2048)} | Gyro: {int(gx*131)}, {int(gy*131)}, {int(gz*131)} | GPS: 12.34,56.78,{velocity_kmh:.1f},8 | IR: {ir_val} | POS: 0.0,0.0,{pos_z:.3f}\n"
             log_lines.append(line)
         return log_lines
         
@@ -153,7 +158,10 @@ def generate_kinematic_crash(velocity_kmh, angle_deg, height_m, is_wearing, nois
         gps_speed = math.sqrt(lin_vel[0]**2 + lin_vel[1]**2) * 3.6
         ir_val = 1 if is_wearing else 0
         
-        line = f"Accel: {raw_ax}, {raw_ay}, {raw_az} | Gyro: {raw_gx}, {raw_gy}, {raw_gz} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val}\n"
+        pos, _ = p.getBasePositionAndOrientation(helmet)
+        px, py, pz = pos
+        
+        line = f"Accel: {raw_ax}, {raw_ay}, {raw_az} | Gyro: {raw_gx}, {raw_gy}, {raw_gz} | GPS: 12.34,56.78,{gps_speed:.1f},8 | IR: {ir_val} | POS: {px:.3f},{py:.3f},{pz:.3f}\n"
         log_lines.append(line)
         
         prev_vel = lin_vel
