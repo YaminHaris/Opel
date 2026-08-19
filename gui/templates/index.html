@@ -363,12 +363,17 @@
             renderer.setSize(container.clientWidth, 400);
         });
         
-        // Listen for CRASH ALERTS!
+        // Listen for CRASH & SAFE ALERTS
         socket.on('crash_report', function(data) {
-            console.log("CRASH RECEIVED: ", data);
+            console.log("EVENT RECEIVED: ", data);
             
             let parts = data.message.split("|").map(p => p.trim());
-            let logEntry = `<span style="color: #e74c3c; font-weight: bold;">[${new Date().toLocaleTimeString()}] 🚨 CRASH DETECTED:</span> `;
+            
+            let isSafe = data.message.includes("SAFE_EVENT");
+            let icon = isSafe ? "✅ SAFE (NO SOS)" : "🚨 CRASH DETECTED";
+            let color = isSafe ? "#2ecc71" : "#e74c3c";
+            
+            let logEntry = `<span style="color: ${color}; font-weight: bold;">[${new Date().toLocaleTimeString()}] ${icon}:</span> `;
             let scenarioName = "Unknown";
             
             for (let i = 1; i < parts.length; i++) {

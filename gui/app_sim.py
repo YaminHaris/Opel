@@ -90,6 +90,12 @@ def file_reader():
                 
             time.sleep(0.005) # Playback at 200Hz
             
+        # If the 5 second simulation finishes without triggering an SOS, log it as a SAFE event!
+        if not sos_emitted:
+            msg = f"SAFE_EVENT | MaxG: {firmware.max_g:.1f} | Energy: {firmware.energy:.1f} | Tumbling: {1 if firmware.is_tumbling else 0} | Dragging: {1 if firmware.is_dragging else 0} | GPS: 12.34,56.78 | Scenario: {scenario['name']}"
+            print(f"EMITTING SAFE EVENT: {msg}")
+            socketio.emit('crash_report', {'message': msg})
+            
         print(f"Simulation finished. Restarting in 3 seconds...")
         time.sleep(3)
 
