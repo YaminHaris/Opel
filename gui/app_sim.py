@@ -89,7 +89,7 @@ def index():
 
 if __name__ == '__main__':
     print(f"=== SIMULATION SERVER STARTED ===")
-    print(f"Playing back log: {SIM_LOG_FILE}")
+    print(f"Dynamic Kinematic Physics Engine Active")
     print(f"Open http://127.0.0.1:5000 in your browser")
     
     thread = threading.Thread(target=file_reader)
