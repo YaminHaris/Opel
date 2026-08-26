@@ -1,0 +1,35 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "helmet-companion",
+          "appId": "1:30344483724:android:cc0ebf7d797148ac59bca9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "helmet-companion",
+          "configurations": {
+            "android": "1:30344483724:android:cc0ebf7d797148ac59bca9",
+            "ios": "1:30344483724:ios:af6396df228b0bdb59bca9",
+            "macos": "1:30344483724:ios:af6396df228b0bdb59bca9",
+            "web": "1:30344483724:web:6c70a75dc406eb0559bca9",
+            "windows": "1:30344483724:web:9174abf3f825d8ab59bca9"
+          }
+        }
+      }
+    }
+  },
+  "emulators": {
+    "singleProjectMode": true,
+    "database": {
+      "port": 9000
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    }
+  }
+}

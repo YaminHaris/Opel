@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "30344483724",
+    "firebase_url": "https://helmet-companion-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "helmet-companion",
+    "storage_bucket": "helmet-companion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:30344483724:android:cc0ebf7d797148ac59bca9",
+        "android_client_info": {
+          "package_name": "com.satra.helmet.companion_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOGDCv9BT9fBDFvZMKOC1TkI7Tv6hGwas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
