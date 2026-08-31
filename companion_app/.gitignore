@@ -1,4 +1,4 @@
-# Flutter/Dart
+﻿# Flutter/Dart
 .dart_tool/
 .packages
 build/
@@ -14,17 +14,26 @@ android/local.properties
 android/**/gradle-wrapper.jar
 android/key.properties
 android/app/google-services.json
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
 # iOS
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Pods/
 ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
 *.mode1v3
 *.mode2v3
 *.moved-aside
 *.pbxuser
 *.perspectivev3
+
+# macOS
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.swift
 
 # IDE
 .idea/
@@ -35,4 +44,5 @@ ios/.symlinks/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+database-debug.log
 .firebase/
