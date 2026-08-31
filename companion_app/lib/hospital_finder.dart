@@ -35,28 +35,48 @@ class HospitalFinderException implements Exception {
 /// Queries OpenStreetMap's Overpass API (free, no key required) for
 /// hospitals near the given coordinates and returns the closest one.
 /// Tries a 5km radius first, then widens to 15km if nothing is found —
-/// useful for helmet GPS fixes in less built-up areas.
+/// useful for helmet GPS fixes in less built-up areas. Tries the main
+/// server first, then a community mirror if that times out or fails —
+/// the main public instance can be slow/overloaded, especially over
+/// mobile data from outside Europe.
+const List<String> _overpassServers = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
 Future<Hospital?> findNearestHospital(double lat, double lon) async {
   for (final radiusM in [5000, 15000]) {
-    final query = '[out:json][timeout:10];'
+    final query = '[out:json][timeout:20];'
         'node["amenity"="hospital"](around:$radiusM,$lat,$lon);'
         'out;';
-    final uri = Uri.parse('https://overpass-api.de/api/interpreter').replace(
-      queryParameters: {'data': query},
-    );
 
-    // Overpass API's fair-use policy rejects requests without an
-    // identifying User-Agent (returns 406 Not Acceptable) — Dart's http
-    // package doesn't set one by default, so it's added explicitly here.
-    final response = await http.get(
-      uri,
-      headers: {
-        'User-Agent': 'HelmetGuardApp/1.0 (SIH 2026 PS-06 smart helmet companion app)',
-        'Accept': 'application/json',
-      },
-    ).timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) {
-      throw HospitalFinderException('Hospital lookup failed (${response.statusCode})');
+    http.Response? response;
+    Object? lastError;
+
+    for (final server in _overpassServers) {
+      final uri = Uri.parse(server).replace(queryParameters: {'data': query});
+      try {
+        // Overpass API's fair-use policy rejects requests without an
+        // identifying User-Agent (returns 406 Not Acceptable) — Dart's
+        // http package doesn't set one by default, so it's added here.
+        response = await http.get(
+          uri,
+          headers: {
+            'User-Agent': 'HelmetGuardApp/1.0 (SIH 2026 PS-06 smart helmet companion app)',
+            'Accept': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 30));
+        if (response.statusCode == 200) break;
+        lastError = HospitalFinderException('Hospital lookup failed (${response.statusCode})');
+        response = null;
+      } catch (e) {
+        lastError = e;
+        response = null;
+      }
+    }
+
+    if (response == null) {
+      throw lastError ?? HospitalFinderException('Hospital lookup failed (all servers unreachable)');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
