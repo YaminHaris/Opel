@@ -46,3 +46,4 @@ firestore-debug.log
 ui-debug.log
 database-debug.log
 .firebase/
+ios/Flutter/Generated.xcconfig
