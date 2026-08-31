@@ -28,7 +28,7 @@ const int kMaxContacts = 5;
 // Geocoding API key — separate from the Maps display key, restricted
 // to the Geocoding API only. Used exclusively by the debug address
 // tool below. Replace with your own key.
-const String kGeocodingApiKey = 'YOUR_GEOCODING_API_KEY_HERE';
+const String kGeocodingApiKey = 'AIzaSyAFjlY8BP0t4RGJFwzQgj3c12mTiGPmuPk';
 
 const bool kUseFirebaseEmulator =
     bool.fromEnvironment('USE_FIREBASE_EMULATOR', defaultValue: false);
@@ -319,11 +319,14 @@ class _ContactScreenState extends State<ContactScreen> {
       final lat = (data['lat'] as num?)?.toDouble();
       final lon = (data['lon'] as num?)?.toDouble();
       if (lat == null || lon == null) return;
-      // Only re-look-up if the fix actually moved meaningfully, so we
-      // don't hammer the Overpass API on every minor GPS jitter.
+      // Only re-query the hospital if the fix actually moved meaningfully,
+      // so we don't hammer the Overpass API on every minor GPS jitter —
+      // but always update state so the map itself reflects the latest fix.
       final moved = _lastLat == null || (lat - _lastLat!).abs() > 0.002 || (lon - _lastLon!).abs() > 0.002;
-      _lastLat = lat;
-      _lastLon = lon;
+      setState(() {
+        _lastLat = lat;
+        _lastLon = lon;
+      });
       if (moved && mounted) _lookUpNearestHospital();
     }, onError: (_) {});
   }
@@ -346,7 +349,9 @@ class _ContactScreenState extends State<ContactScreen> {
       if (!mounted) return;
       setState(() {
         _findingHospital = false;
-        _hospitalError = 'Hospital lookup failed';
+        // Real error text (not just "failed") so this is actually
+        // debuggable from the UI without needing logcat.
+        _hospitalError = 'Hospital lookup failed: $e';
       });
     }
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// PLACEHOLDER UUIDs — must match whatever the microcontroller firmware
 /// actually advertises. NOT YET WIRED UP: this repo's firmware currently
@@ -31,6 +32,17 @@ class BleHelmetService {
   String? lastError;
 
   Future<bool> _ensureBluetoothOn() async {
+    // Android 12+ (API 31+) requires these as runtime-requested
+    // permissions, not just manifest declarations — without this,
+    // startScan() silently returns zero results instead of erroring,
+    // which is exactly the "sync does nothing" symptom this fixes.
+    final scanStatus = await Permission.bluetoothScan.request();
+    final connectStatus = await Permission.bluetoothConnect.request();
+    if (!scanStatus.isGranted || !connectStatus.isGranted) {
+      lastError = 'Bluetooth permission denied — enable it in phone settings';
+      return false;
+    }
+
     if (await FlutterBluePlus.isSupported == false) {
       lastError = 'Bluetooth not supported on this device';
       return false;
