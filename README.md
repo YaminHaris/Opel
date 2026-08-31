@@ -218,3 +218,22 @@ You mentioned you aren't sure if the SIM800L is the final choice. You have excel
 *   **The Upgrade Path:** If judges ask about commercialization, tell them: *"For this prototype, we used a ₹400 SIM800L 2G module to keep development costs low. In our final production roadmap, we will replace this with an **A7670C (4G LTE)** or an **NB-IoT module** which costs roughly ₹1,200. This guarantees it works on modern networks like Jio and dramatically lowers power consumption."* 
 
 Having this answer ready will prove to the judges that you understand both hardware limitations and the telecommunications market in India.
+
+---
+
+## Companion App (Flutter, `companion_app/`)
+
+A mobile app for managing the helmet's emergency contacts, syncing via
+Firebase and Bluetooth (BLE), with a live map, nearest-hospital
+lookup, and an SOS test flow. Targets **ESP32** — see
+`companion_app/README.md` for the full breakdown of what's
+implemented, how it's tested, and how it connects to the firmware.
+
+### ESP32 firmware (`companion_app/firmware/`)
+
+`iotsmarthelmetfinal.ino` — crash detection (MPU6050 impact + rotation
+confirmation, confidence scoring), GPS, SIM800L SMS alerts, and a BLE
+service that accepts emergency contact updates from the companion app.
+This is a separate ESP32-targeted sketch, independent of the Pico 2
+telemetry pipeline (`mpu_reader/`, `gui/`) described above — the two
+haven't been unified yet.

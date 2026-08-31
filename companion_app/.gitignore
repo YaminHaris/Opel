@@ -1,0 +1,38 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Android
+android/.gradle/
+android/app/build/
+android/local.properties
+android/**/gradle-wrapper.jar
+android/key.properties
+android/app/google-services.json
+
+# iOS
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/.symlinks/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Firebase emulator data
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
