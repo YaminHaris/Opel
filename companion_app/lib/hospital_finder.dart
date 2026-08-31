@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 
-/// India's national ambulance number — used as a fallback when a nearby
-/// hospital has no phone number tagged in OpenStreetMap data.
-const String kFallbackAmbulanceNumber = '108';
+/// India's unified national emergency number — used as a fallback when
+/// a nearby hospital has no phone number tagged in OpenStreetMap data.
+const String kFallbackAmbulanceNumber = '112';
 
 class Hospital {
   final String name;
@@ -45,7 +45,16 @@ Future<Hospital?> findNearestHospital(double lat, double lon) async {
       queryParameters: {'data': query},
     );
 
-    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    // Overpass API's fair-use policy rejects requests without an
+    // identifying User-Agent (returns 406 Not Acceptable) — Dart's http
+    // package doesn't set one by default, so it's added explicitly here.
+    final response = await http.get(
+      uri,
+      headers: {
+        'User-Agent': 'HelmetGuardApp/1.0 (SIH 2026 PS-06 smart helmet companion app)',
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw HospitalFinderException('Hospital lookup failed (${response.statusCode})');
     }

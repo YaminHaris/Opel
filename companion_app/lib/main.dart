@@ -359,7 +359,7 @@ class _ContactScreenState extends State<ContactScreen> {
   void _selectAmbulanceContact(Hospital h) {
     setState(() {
       _selectedAmbulanceNumber = h.callNumber;
-      _selectedAmbulanceLabel = h.hasDirectHospitalNumber ? h.name : '${h.name} (via 108)';
+      _selectedAmbulanceLabel = h.hasDirectHospitalNumber ? h.name : '${h.name} (via 112)';
     });
     HapticFeedback.selectionClick();
     _showBanner('${h.name} set as ambulance contact');
@@ -620,7 +620,7 @@ class _ContactScreenState extends State<ContactScreen> {
           'This writes a test alert to the dashboard, then starts a 5-second countdown. '
           'If you don\'t cancel it, the app will actually call $ambulanceNumber and '
           '${hasEmergencyContact ? "text your emergency contact your current location." : "would text your emergency contact, but none is saved yet."}\n\n'
-          'This places a REAL call — use a real ambulance/hospital number or your own test number, not 108, unless you mean it.',
+          'This places a REAL call — use a real ambulance/hospital number or your own test number, not 112, unless you mean it.',
         ),
         actions: [
           CupertinoDialogAction(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx, false)),
@@ -651,7 +651,7 @@ class _ContactScreenState extends State<ContactScreen> {
           _selectedAmbulanceNumber = _nearestHospital!.callNumber;
           _selectedAmbulanceLabel = _nearestHospital!.hasDirectHospitalNumber
               ? _nearestHospital!.name
-              : '${_nearestHospital!.name} (via 108)';
+              : '${_nearestHospital!.name} (via 112)';
         });
       }
 
@@ -1613,7 +1613,7 @@ class _NearestHospitalCard extends StatelessWidget {
           if (!h.hasDirectHospitalNumber) ...[
             const SizedBox(height: 10),
             Text(
-              'No listed number for this hospital — Call and ambulance-select will use the national line (108) instead.',
+              'No listed number for this hospital — Call and ambulance-select will use the national line (112) instead.',
               style: GoogleFonts.inter(color: _textSecondary, fontSize: 11.5),
             ),
           ],
