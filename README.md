@@ -223,17 +223,81 @@ Having this answer ready will prove to the judges that you understand both hardw
 
 ## Companion App (Flutter, `companion_app/`)
 
-A mobile app for managing the helmet's emergency contacts, syncing via
-Firebase and Bluetooth (BLE), with a live map, nearest-hospital
-lookup, and an SOS test flow. Targets **ESP32** — see
-`companion_app/README.md` for the full breakdown of what's
-implemented, how it's tested, and how it connects to the firmware.
+A mobile app the rider uses to manage the helmet's safety features
+from their phone: setting emergency contacts, seeing the helmet's
+last known location on a live map, finding and calling the nearest
+hospital, and testing the whole crash-alert flow without needing a
+real crash (or even the physical helmet) to try it.
+
+### What it does
+
+- **Emergency contacts**: one required contact plus up to 5 optional
+  ones, each with call/text buttons and phone-number validation.
+- **Live map**: shows the helmet's last known GPS fix and the nearest
+  hospital found for it, using Google Maps. Updates in real time as
+  new location data comes in from Firebase.
+- **Nearest hospital lookup**: automatically finds nearby hospitals
+  (via the Google Geocoding/Places-style lookup), shows distance, and
+  lets the rider call or get directions. A hospital only becomes the
+  active "ambulance contact" if the rider explicitly selects it, or
+  if a crash/SOS is triggered — it's never silently auto-filled just
+  because one was found nearby.
+- **SOS test flow**: simulates a crash end-to-end — writes a test
+  alert, starts a 5-second cancellable countdown, then (if not
+  cancelled) places a real call to the ambulance number and texts the
+  emergency contact the current location. Scoped deliberately so this
+  can only fire from an explicit "Simulate SOS" action, never from
+  routine location updates or the address-testing tool below.
+- **Debug tools**: a GPS simulator (uses the phone's own location) and
+  an address-lookup tester (type any address to simulate the helmet
+  being there) — both let the whole pipeline be tested without a
+  physical helmet or travelling anywhere.
+
+### How it connects to the ESP32 firmware
+
+Two independent sync paths, both ending at the same place in the
+firmware:
+
+1. **Firebase (cloud)** — the app writes contacts to a Firebase
+   Realtime Database path (`helmet_01/contacts`); firmware with
+   Firebase connectivity would read from the same path. This is the
+   path used for the live map too — the firmware is expected to write
+   its GPS fix to `helmet_01/status/lat` / `lon`, which the app
+   listens to and reacts to automatically. No firmware currently
+   writes this — it's built against this shape so the GPS-reporting
+   side has a concrete target once someone wires it up.
+
+2. **Bluetooth (BLE), direct phone-to-helmet** — no internet needed.
+   The app scans for a device advertising as `HELMET_01`, connects to
+   a GATT service, and writes the emergency contact number directly.
+   **This path is real and working** — see
+   `companion_app/firmware/iotsmarthelmetfinal.ino` below.
+
+Both paths write to the exact same place in the firmware: the
+`emergencyContact` variable, via the existing `setEmergencyContact()`
+function — the same one the SMS-sending code already reads from when
+a crash fires. The app doesn't bypass or duplicate any of that logic;
+it just gives the rider a way to update the value that function holds.
 
 ### ESP32 firmware (`companion_app/firmware/`)
 
 `iotsmarthelmetfinal.ino` — crash detection (MPU6050 impact + rotation
 confirmation, confidence scoring), GPS, SIM800L SMS alerts, and a BLE
 service that accepts emergency contact updates from the companion app.
+
+The BLE addition is intentionally minimal and additive on top of the
+existing crash-detection logic — nothing in the original file was
+modified, only a few `#include` lines, one `initBLE()` call added to
+`setup()`, and the BLE service code itself appended at the end. See
+the comment block at the end of that file for the exact UUIDs and
+what each characteristic does.
+
 This is a separate ESP32-targeted sketch, independent of the Pico 2
 telemetry pipeline (`mpu_reader/`, `gui/`) described above — the two
 haven't been unified yet.
+
+### Setup
+
+The app needs its own Firebase project and Google Maps/Geocoding API
+keys to run — none are committed to this repo (placeholders only, for
+security). Full setup steps are in `companion_app/README.md`.
